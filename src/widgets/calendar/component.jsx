@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState, useContext } from "react";
-import dynamic from "next/dynamic";
 import { DateTime } from "luxon";
-import { useTranslation } from "next-i18next";
+import { useTranslation } from "next-i18next/pages";
+import dynamic from "next/dynamic";
+import { useContext, useEffect, useMemo, useState } from "react";
 
-import Monthly from "./monthly";
 import Agenda from "./agenda";
+import Monthly from "./monthly";
 
 import Container from "components/services/widget/container";
 import { SettingsContext } from "utils/contexts/settings";
@@ -39,28 +39,32 @@ const colorVariants = {
 export default function Component({ service }) {
   const { widget } = service;
   const { i18n } = useTranslation();
-  const [showDate, setShowDate] = useState(null);
   const [events, setEvents] = useState({});
-  const currentDate = DateTime.now().setLocale(i18n.language).startOf("day");
+  const nowDate = DateTime.now().setLocale(i18n.language);
+  const currentDate = widget?.timezone ? nowDate.setZone(widget?.timezone).startOf("day") : nowDate;
+  const [showDate, setShowDate] = useState(null);
   const { settings } = useContext(SettingsContext);
 
   useEffect(() => {
-    if (!showDate) {
-      setShowDate(currentDate);
-    }
+    // seeded after mount, not during render: "today" is client-only and would break hydration
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!showDate) setShowDate(currentDate);
   }, [showDate, currentDate]);
 
   // params for API fetch
   const params = useMemo(() => {
-    if (!showDate) {
-      return {};
+    const constructedParams = {
+      start: "",
+      end: "",
+      unmonitored: false,
+    };
+
+    if (showDate) {
+      constructedParams.start = showDate.minus({ months: 3 }).toFormat("yyyy-MM-dd");
+      constructedParams.end = showDate.plus({ months: 3 }).toFormat("yyyy-MM-dd");
     }
 
-    return {
-      start: showDate.minus({ months: 3 }).toFormat("yyyy-MM-dd"),
-      end: showDate.plus({ months: 3 }).toFormat("yyyy-MM-dd"),
-      unmonitored: "false",
-    };
+    return constructedParams;
   }, [showDate]);
 
   // Load active integrations
@@ -69,7 +73,14 @@ export default function Component({ service }) {
       widget.integrations
         ?.filter((integration) => integration?.type)
         .map((integration) => ({
-          service: dynamic(() => import(`./integrations/${integration.type}`)),
+          // Include the extension so Vite/Vitest can statically validate the import base.
+          service: dynamic(
+            () =>
+              import(
+                /* webpackExclude: /\.test\.jsx$/ */
+                `./integrations/${integration.type}.jsx`
+              ),
+          ),
           widget: { ...widget, ...integration },
         })) ?? [],
     [widget],
@@ -90,6 +101,7 @@ export default function Component({ service }) {
                 params={params}
                 setEvents={setEvents}
                 hideErrors={settings.hideErrors}
+                timezone={widget?.timezone}
                 className="fixed bottom-0 left-0 bg-red-500 w-screen h-12"
               />
             );
@@ -103,6 +115,7 @@ export default function Component({ service }) {
             events={events}
             showDate={showDate}
             setShowDate={setShowDate}
+            currentDate={currentDate}
             className="flex"
           />
         )}

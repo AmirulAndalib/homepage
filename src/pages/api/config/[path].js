@@ -1,6 +1,7 @@
-import path from "path";
 import fs from "fs";
+import path from "path";
 
+import { withAuth } from "utils/auth";
 import { CONF_DIR } from "utils/config/config";
 import createLogger from "utils/logger";
 
@@ -10,7 +11,7 @@ const logger = createLogger("configFileService");
  * @param {import("next").NextApiRequest} req
  * @param {import("next").NextApiResponse} res
  */
-export default async function handler(req, res) {
+async function handler(req, res) {
   const { path: relativePath } = req.query;
 
   // only two supported files, for now
@@ -28,7 +29,9 @@ export default async function handler(req, res) {
     res.setHeader("Content-Type", mimeType);
     return res.status(200).send(fileContent);
   } catch (error) {
-    logger.error(error);
+    if (error) logger.error(error);
     return res.status(500).end("Internal Server Error");
   }
 }
+
+export default withAuth(handler, { public: (req) => req.query?.path === "custom.css" });

@@ -1,8 +1,8 @@
+import { useTranslation } from "next-i18next/pages";
 import useSWR from "swr";
-import { useTranslation } from "next-i18next";
 
-import Container from "components/services/widget/container";
 import Block from "components/services/widget/block";
+import Container from "components/services/widget/container";
 
 export default function Component({ service }) {
   const { t } = useTranslation();
@@ -18,10 +18,13 @@ export default function Component({ service }) {
   );
 
   if (statsError || statusError) {
-    return <Container service={service} error={statsError ?? statusError} />;
+    return <Container service={service} error={statsError ?? statusError ?? statusData} />;
   }
 
-  if (statusData && !(statusData.status.includes("running") || statusData.status.includes("partial"))) {
+  if (
+    statusData &&
+    (!statusData.status || !(statusData.status.includes("running") || statusData.status.includes("partial")))
+  ) {
     return (
       <Container>
         <Block label={t("widget.status")} value={t("docker.offline")} />
@@ -41,14 +44,23 @@ export default function Component({ service }) {
   return (
     <Container service={service}>
       {(statsData.stats.cpuLimit && (
-        <Block label="docker.cpu" value={t("common.percent", { value: statsData.stats.cpuUsage })} />
+        <Block
+          label="docker.cpu"
+          value={t("common.percent", { value: statsData.stats.cpuUsage })}
+          highlightValue={statsData.stats.cpuUsage}
+        />
       )) || (
         <Block
           label="docker.cpu"
           value={t("common.number", { value: statsData.stats.cpu, maximumFractionDigits: 4 })}
+          highlightValue={statsData.stats.cpu}
         />
       )}
-      <Block label="docker.mem" value={t("common.bytes", { value: statsData.stats.mem })} />
+      <Block
+        label="docker.mem"
+        value={t("common.bytes", { value: statsData.stats.mem })}
+        highlightValue={statsData.stats.mem}
+      />
     </Container>
   );
 }

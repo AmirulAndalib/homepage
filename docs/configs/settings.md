@@ -3,7 +3,7 @@ title: Settings
 description: Service Configuration
 ---
 
-The `settings.yaml` file allows you to define application level options. For changes made to this file to take effect, you will need to regenerate the static HTML, this can be done by clicking the refresh icon in the bottom right of the page.
+The `settings.yaml` file allows you to define application level options. After making changes, click the refresh icon in the bottom right of the page to clear the cached dashboard data and reload the page.
 
 ## Title
 
@@ -11,6 +11,14 @@ You can customize the title of the page if you'd like.
 
 ```yaml
 title: My Awesome Homepage
+```
+
+## Description
+
+You can customize the description of the page if you'd like.
+
+```yaml
+description: A description of my awesome homepage
 ```
 
 ## Start URL
@@ -25,7 +33,7 @@ startUrl: https://custom.url
 
 !!! warning "Heads Up!"
 
-    You will need to restart the container any time you add new images, this is a limitation of the Next.js static site server.
+    You will need to restart the container any time you add new local images so the server can discover them.
 
 !!! warning "Heads Up!"
 
@@ -70,7 +78,7 @@ background:
 You can apply a blur filter to the service & bookmark cards. Note this option is incompatible with the background blur, saturate and brightness filters.
 
 ```yaml
-cardBlur: sm # sm, "", md, etc... see https://tailwindcss.com/docs/backdrop-blur
+cardBlur: xs # xs, md, etc... see https://tailwindcss.com/docs/backdrop-blur
 ```
 
 ## Favicon
@@ -85,7 +93,7 @@ Or you may pass the path to a local image relative to the `/app/public` director
 
 ## Theme
 
-You can configure a fixed them (and disable the theme switcher) by passing the `theme` option, like so:
+You can configure a fixed theme (and disable the theme switcher) by passing the `theme` option, like so:
 
 ```yaml
 theme: dark # or light
@@ -93,13 +101,79 @@ theme: dark # or light
 
 ## Color Palette
 
-You can configured a fixed color palette (and disable the palette switcher) by passing the `color` option, like so:
+You can configure a fixed color palette (and disable the palette switcher) by passing the `color` option, like so:
 
 ```yaml
 color: slate
 ```
 
 Supported colors are: `slate`, `gray`, `zinc`, `neutral`, `stone`, `amber`, `yellow`, `lime`, `green`, `emerald`, `teal`, `cyan`, `sky`, `blue`, `indigo`, `violet`, `purple`, `fuchsia`, `pink`, `rose`, `red`, `white`
+
+## Block Highlight Levels
+
+You can override the default Tailwind classes applied when a widget highlight rule resolves to the `good`, `warn`, or `danger` level.
+
+```yaml
+blockHighlights:
+  levels:
+    good: "bg-emerald-500/40 text-emerald-950 dark:bg-emerald-900/60 dark:text-emerald-400"
+    warn: "bg-amber-300/30 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200"
+    danger: "bg-rose-700/45 text-rose-200 dark:bg-rose-950/70 dark:text-rose-400"
+```
+
+Any unspecified level falls back to the built-in defaults.
+
+## Progressive Web App (PWA)
+
+A progressive web app is an app that can be installed on a device and provide user experience like a native app. Homepage comes with built-in support for PWA with some default configurations, but you can customize them.
+
+More information on PWAs can be found in [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps).
+
+### App icons
+
+You can set custom icons for installable apps. More information about how you can set them can be found in the [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest/Reference/icons).
+
+The default value is the Homepage icon in sizes 192x192 and 512x512.
+
+```yaml
+pwa:
+  icons:
+    - src: https://developer.mozilla.org/favicon-192x192.png
+      type: image/png
+      sizes: 192x192
+    - src: https://developer.mozilla.org/favicon-512x512.png
+      type: image/png
+      sizes: 512x512
+```
+
+For icon `src` you can pass either full URL or a local path relative to the `/app/public` directory. See [Background Image](#background-image) for more detailed information on how to provide your own files.
+
+### Shortcuts
+
+Shortcuts can be used to specify links to tabs, to be preselected when the homepage is opened as an app.
+More information about how you can set them can be found in the [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest/Reference/shortcuts).
+
+```yaml
+pwa:
+  shortcuts:
+    - name: First
+      url: "/#first" # opens the first tab
+    - name: Second
+      url: "/#second" # opens the second tab
+    - name: Third
+      url: "/#third" # opens the third tab
+```
+
+### Other PWA configurations
+
+Homepage sets few other PWA configurations, that are based on global settings in `settings.yaml`:
+
+- `name`, `short_name` - Both equal to the [`title`](#title) setting.
+- `theme_color`, `background_color` - Both based on the [`color`](#color-palette) and [`theme`](#theme) settings.
+- `display` - It is always set to "standalone".
+- `start_url` - Equal to the [`startUrl`](#start-url) setting.
+
+More information for wach of the PWA configurations can be found in the [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest/Reference).
 
 ## Layout
 
@@ -118,6 +192,22 @@ As an example, this would produce the following layout:
 
 <img width="1260" alt="Screenshot 2022-09-15 at 8 03 57 PM" src="https://user-images.githubusercontent.com/82196/190466646-8ca94505-0fcf-4964-9687-3a6c7cd3144f.png">
 
+### Icons-Only Layout
+
+You can also specify the an icon-only layout for bookmarks, either like so:
+
+```yaml
+layout:
+  Media:
+    iconsOnly: true
+```
+
+or globally:
+
+```yaml
+bookmarksStyle: icons
+```
+
 ### Sorting
 
 Service groups and bookmark groups can be mixed in order, **but should use different group names**. If you do not specify any bookmark groups they will all show at the bottom of the page.
@@ -135,6 +225,27 @@ layout:
   - Configured3:
       style: row
       columns: 3
+```
+
+### Nested Groups
+
+If your services config has nested groups, you can apply settings to these groups by nesting them in the layout block
+and using the same settings. For example
+
+```yaml
+layout:
+  Group A:
+    style: row
+    columns: 4
+  Group C:
+    style: row
+    columns: 2
+    Nested Group A:
+      style: row
+      columns: 2
+    Nested Group B:
+      style: row
+      columns: 2
 ```
 
 ### Headers
@@ -209,15 +320,29 @@ layout:
     columns: 4
 ```
 
-### Five Columns
+### Full Width
 
-You can add a fifth column (when `style: columns` which is default) by adding:
+You can make homepage take up the entire window width by adding:
 
 ```yaml
-fiveColumns: true
+fullWidth: true
 ```
 
-By default homepage will max out at 4 columns for column style
+### Maximum Group Columns
+
+You can set the maximum number of columns of groups on larger screen sizes (note this is only for groups with the default `style: columns`, not groups with `style: row`) by adding:
+
+```yaml
+maxGroupColumns: 8 # default is 4 for services, 6 for bookmarks, max 8
+```
+
+By default homepage will max out at 4 columns for services and 6 for bookmarks, thus the minimum for this setting is _5_. Of course, if you're setting this to higher numbers, you may want to consider enabling the [fullWidth](#full-width) option as well.
+
+If you want to set the maximum columns for bookmark groups separately, you can do so by adding:
+
+```yaml
+maxBookmarkGroupColumns: 6 # default is 6, max 8
+```
 
 ### Collapsible sections
 
@@ -228,6 +353,48 @@ disableCollapse: true
 ```
 
 By default the feature is enabled.
+
+### Initially collapsed sections
+
+You can initially collapse sections by adding the `initiallyCollapsed` option to the layout group.
+
+```yaml
+layout:
+  Section A:
+    initiallyCollapsed: true
+```
+
+This can also be set globaly using the `groupsInitiallyCollapsed` option.
+
+```yaml
+groupsInitiallyCollapsed: true
+```
+
+The value set on a group will overwrite the global setting.
+
+By default the feature is disabled.
+
+### Use Equal Height Cards
+
+You can enable equal height cards for groups of services, this will make all cards in a row the same height.
+
+Global setting in `settings.yaml`:
+
+```yaml
+useEqualHeights: true
+```
+
+Per layout group in `settings.yaml`:
+
+```yaml
+useEqualHeights: false
+layout:
+  ...
+  Group Name:
+    useEqualHeights: true # overrides global setting
+```
+
+By default the feature is disabled
 
 ## Header Style
 
@@ -263,6 +430,64 @@ headerStyle: clean
 headerStyle: boxedWidgets
 ```
 
+## Card Style
+
+Service and bookmark cards use a drop shadow by default. The `hairline` style replaces it with a thin border that brightens on hover.
+
+<img width="896" alt="default cards" src="../../assets/style-default.webp">
+
+```yaml
+# default, shadowed cards
+```
+
+---
+
+<img width="896" alt="hairline cards" src="../../assets/card-style-hairline.webp">
+
+```yaml
+cardStyle: hairline
+```
+
+## Block Style
+
+Widget blocks (the value / label pairs inside a service card) can use the `refined` style to make values heavier and easier to read.
+
+<img width="896" alt="default blocks" src="../../assets/style-default.webp">
+
+```yaml
+# default, standard blocks
+```
+
+---
+
+<img width="896" alt="refined blocks" src="../../assets/block-style-refined.webp">
+
+```yaml
+blockStyle: refined
+```
+
+## Font
+
+Homepage uses Manrope by default. You can switch to IBM Plex Mono instead, either everywhere or for data only.
+
+<img width="896" alt="IBM Plex Mono everywhere" src="../../assets/font-plex.webp">
+
+```yaml
+font: plex # the whole dashboard
+```
+
+---
+
+<img width="896" alt="IBM Plex Mono for data only" src="../../assets/font-plex-data.webp">
+
+```yaml
+font: plexData # only values, stats, the clock and status tags
+```
+
+With `plexData`, labels and names stay in Manrope while numbers line up in columns.
+
+Both fonts are bundled with Homepage, so no external requests are made.
+
 ## Base URL
 
 In some proxy configurations, it may be necessary to set the documents base URL. You can do this by providing a `base` value, like so:
@@ -281,7 +506,9 @@ Set your desired language using:
 language: fr
 ```
 
-Currently supported languages: ca, de, en, es, fr, he, hr, hu, it, nb-NO, nl, pt, ru, sv, vi, zh-CN, zh-Hant
+Currently supported languages: ca, de, en, es, fr, he, hr, hu, it, nb-NO, nl, pt, ru, sv, vi, zh-Hans (Simplified), zh-Hant (Traditional)
+
+`zh-CN` will still work and is automatically mapped to `zh-Hans` for backwards compatibility.
 
 You can also specify locales e.g. for the DateTime widget, e.g. en-AU, en-GB, etc.
 
@@ -306,12 +533,12 @@ This can also be set for individual services. Note setting this at the service l
 
 ## Providers
 
-The `providers` section allows you to define shared API provider options and secrets. Currently this allows you to define your weather API keys in secret and is also the location of the Longhorn URL and credentials.
+The `providers` section allows you to define shared API provider options and secrets.
 
 ```yaml
 providers:
   openweathermap: openweathermapapikey
-  weatherapi: weatherapiapikey
+  finnhub: yourfinnhubapikeyhere
   longhorn:
     url: https://longhorn.example.com
     username: admin
@@ -321,10 +548,10 @@ providers:
 You can then pass `provider` instead of `apiKey` in your widget configuration.
 
 ```yaml
-- weather:
+- openweathermap:
     latitude: 50.449684
     longitude: 30.525026
-    provider: weatherapi
+    provider: openweathermap
 ```
 
 ## Quick Launch
@@ -335,23 +562,44 @@ You can use the 'Quick Launch' feature to search services, perform a web search 
 
 There are a few optional settings for the Quick Launch feature:
 
-- `searchDescriptions`: which lets you control whether item descriptions are included in searches. This is off by default. When enabled, results that match the item name will be placed above those that only match the description.
+- `searchDescriptions`: which lets you control whether item descriptions are included in searches. This is false by default. When enabled, results that match the item name will be placed above those that only match the description.
 - `hideInternetSearch`: disable automatically including the currently-selected web search (e.g. from the widget) as a Quick Launch option. This is false by default, enabling the feature.
+- `showSearchSuggestions`: show search suggestions for the internet search. If this is not specified then the setting will be inherited from the search widget. If it is not specified there either, it will default to false. For custom providers the `suggestionUrl` needs to be set in order for this to work.
+- `provider`: search engine provider. If none is specified it will try to use the provider set for the Search Widget, if neither are present then internet search will be disabled.
 - `hideVisitURL`: disable detecting and offering an option to open URLs. This is false by default, enabling the feature.
+- `mobileButtonPosition`: enables and sets the position of the mobile quicklaunch button. Options are `top-left`, `top-right`, `bottom-left`, `bottom-right`. This is empty by default, disabling the feature.
 
 ```yaml
 quicklaunch:
   searchDescriptions: true
   hideInternetSearch: true
+  showSearchSuggestions: true
   hideVisitURL: true
+  provider: google # google, duckduckgo, bing, baidu, brave or custom
 ```
 
-## Homepage Version
+or for a custom search:
+
+```yaml
+quicklaunch:
+  provider: custom
+  url: https://www.ecosia.org/search?q=
+  target: _blank
+  suggestionUrl: https://ac.ecosia.org/autocomplete?type=list&q=
+```
+
+## Homepage Version & Update Checking
 
 By default the release version is displayed at the bottom of the page. To hide this, use the `hideVersion` setting, like so:
 
 ```yaml
 hideVersion: true
+```
+
+You can disable checking for new versions from GitHub (enabled by default) with:
+
+```yaml
+disableUpdateCheck: true
 ```
 
 ## Log Path
@@ -362,9 +610,13 @@ By default the homepage logfile is written to the a `logs` subdirectory of the `
 logpath: /logfile/path
 ```
 
-## Show Docker Stats
+By default, logs are sent both to `stdout` and to a file at the path specified. This can be changed by setting the `LOG_TARGETS` environment variable to one of `both` (default), `stdout` or `file`.
 
-You can show all docker stats expanded in `settings.yaml`:
+Log files rotate automatically when they reach 10 MiB. Up to five files are retained: the current `homepage.log` and four rotated files (`homepage1.log` through `homepage4.log`). The oldest rotated file is removed when a new one is created.
+
+## Show Container Stats
+
+You can show all docker or proxmox stats expanded in `settings.yaml`:
 
 ```yaml
 showStats: true
@@ -433,3 +685,18 @@ or per service widget (`services.yaml`) with:
 ```
 
 If either value is set to true, the error message will be hidden.
+
+## Disable Search Engine Indexing
+
+You can request that search engines not to index your Homepage instance by enabling the `disableIndexing` setting.
+
+```yaml
+disableIndexing: true
+```
+
+When enabled, this will:
+
+- Disallow all crawlers in `robots.txt`
+- Add `<meta name="robots" content="noindex, nofollow">` tags to prevent indexing
+
+By default this feature is disabled.

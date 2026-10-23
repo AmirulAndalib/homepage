@@ -6,7 +6,6 @@ description: Install and run homepage from Docker
 Using docker compose:
 
 ```yaml
-version: "3.3"
 services:
   homepage:
     image: ghcr.io/gethomepage/homepage:latest
@@ -15,7 +14,9 @@ services:
       - 3000:3000
     volumes:
       - /path/to/config:/app/config # Make sure your local config directory exists
-      - /var/run/docker.sock:/var/run/docker.sock # (optional) For docker integrations
+      - /var/run/docker.sock:/var/run/docker.sock:ro # (optional) For docker integrations
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: gethomepage.dev # required, may need port. See gethomepage.dev/installation/#homepage_allowed_hosts
 ```
 
 ### Running as non-root
@@ -27,7 +28,6 @@ _Using the docker socket directly is not the recommended method of integration a
 In the docker compose example below, the environment variables `$PUID` and `$PGID` are set in a `.env` file.
 
 ```yaml
-version: "3.3"
 services:
   homepage:
     image: ghcr.io/gethomepage/homepage:latest
@@ -36,8 +36,9 @@ services:
       - 3000:3000
     volumes:
       - /path/to/config:/app/config # Make sure your local config directory exists
-      - /var/run/docker.sock:/var/run/docker.sock # (optional) For docker integrations, see alternative methods
+      - /var/run/docker.sock:/var/run/docker.sock:ro # (optional) For docker integrations, see alternative methods
     environment:
+      HOMEPAGE_ALLOWED_HOSTS: gethomepage.dev # required, may need port. See gethomepage.dev/installation/#homepage_allowed_hosts
       PUID: $PUID
       PGID: $PGID
 ```
@@ -45,7 +46,7 @@ services:
 ### With Docker Run
 
 ```bash
-docker run -p 3000:3000 -v /path/to/config:/app/config -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/gethomepage/homepage:latest
+docker run -p 3000:3000 -e HOMEPAGE_ALLOWED_HOSTS=gethomepage.dev -v /path/to/config:/app/config -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/gethomepage/homepage:latest
 ```
 
 ### Using Environment Secrets

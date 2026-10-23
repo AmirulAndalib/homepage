@@ -1,23 +1,74 @@
-import { formatApiCall } from "utils/proxy/api-helpers";
+import { withAuth } from "utils/auth";
+import getServiceWidget from "utils/config/service-helpers";
 import createLogger from "utils/logger";
+import { formatApiCall } from "utils/proxy/api-helpers";
 import genericProxyHandler from "utils/proxy/handlers/generic";
+import calendarProxyHandler from "widgets/calendar/proxy";
 import widgets from "widgets/widgets";
 
 const logger = createLogger("servicesProxy");
 
-export default async function handler(req, res) {
+function getSafeSegments(rawSegments, allowedSegments) {
+  if (typeof rawSegments !== "string" || !Array.isArray(allowedSegments)) return null;
+
+  let segments;
   try {
-    const { type } = req.query;
+    segments = JSON.parse(rawSegments);
+  } catch {
+    return null;
+  }
+
+  if (!segments || typeof segments !== "object" || Array.isArray(segments)) return null;
+
+  const keys = Object.keys(segments);
+  if (keys.length !== allowedSegments.length || !keys.every((key) => allowedSegments.includes(key))) return null;
+
+  const safeSegments = {};
+  for (const key of allowedSegments) {
+    const value = segments[key];
+    if (
+      typeof value !== "string" ||
+      value.length === 0 ||
+      value.includes("%") ||
+      value.includes("/") ||
+      value.includes("\\") ||
+      value.includes("..")
+    ) {
+      return null;
+    }
+    safeSegments[key] = encodeURIComponent(value);
+  }
+
+  return safeSegments;
+}
+
+async function handler(req, res) {
+  try {
+    const { service, group, index } = req.query;
+    const serviceWidget = await getServiceWidget(group, service, index);
+    let type = serviceWidget?.type;
+
+    // exceptions
+    if (type === "calendar") type = "ical";
+    else if (service === "unifi_console" && group === "unifi_console") type = "unifi_console";
+
     const widget = widgets[type];
 
     if (!widget) {
       logger.debug("Unknown proxy service type: %s", type);
-      return res.status(403).json({ error: "Unkown proxy service type" });
+      return res.status(403).json({ error: "Unknown proxy service type" });
     }
 
     const serviceProxyHandler = widget.proxyHandler || genericProxyHandler;
 
     if (serviceProxyHandler instanceof Function) {
+      // quick return for no endpoint services, calendar is an exception
+      if (!req.query.endpoint || serviceProxyHandler === calendarProxyHandler) {
+        req.method = "GET";
+        req.body = undefined;
+        return await serviceProxyHandler(req, res);
+      }
+
       // map opaque endpoints to their actual endpoint
       if (widget?.mappings) {
         const mapping = widget?.mappings?.[req.query.endpoint];
@@ -27,17 +78,26 @@ export default async function handler(req, res) {
         const endpoint = mapping?.endpoint;
         const endpointProxy = mapping?.proxyHandler || serviceProxyHandler;
 
+        if (mapping?.method && mapping.method !== req.method) {
+          logger.debug("Unsupported method: %s", req.method);
+          return res.status(403).json({ error: "Unsupported method" });
+        }
+
         if (!endpoint) {
           logger.debug("Unsupported service endpoint: %s", type);
           return res.status(403).json({ error: "Unsupported service endpoint" });
         }
 
         req.method = mapping?.method || "GET";
-        if (mapping?.body) req.body = mapping?.body;
+        req.body = mapping?.body;
         req.query.endpoint = endpoint;
 
-        if (req.query.segments) {
-          const segments = JSON.parse(req.query.segments);
+        if (mapping.segments || req.query.segments) {
+          const segments = getSafeSegments(req.query.segments, mapping.segments);
+          if (!segments) {
+            logger.debug("Unsupported segments");
+            return res.status(403).json({ error: "Unsupported segment" });
+          }
           req.query.endpoint = formatApiCall(endpoint, segments);
         }
 
@@ -60,19 +120,30 @@ export default async function handler(req, res) {
         }
 
         if (endpointProxy instanceof Function) {
-          return endpointProxy(req, res, map);
+          return await endpointProxy(req, res, map);
         }
 
-        return serviceProxyHandler(req, res, map);
+        return await serviceProxyHandler(req, res, map);
       }
 
-      return serviceProxyHandler(req, res);
+      if (widget.allowedEndpoints instanceof RegExp) {
+        if (widget.allowedEndpoints.test(req.query.endpoint)) {
+          req.method = "GET";
+          req.body = undefined;
+          return await serviceProxyHandler(req, res);
+        }
+      }
+
+      logger.debug("Unmapped proxy request.");
+      return res.status(403).json({ error: "Unmapped proxy request." });
     }
 
     logger.debug("Unknown proxy service type: %s", type);
-    return res.status(403).json({ error: "Unkown proxy service type" });
-  } catch (ex) {
-    logger.error(ex);
+    return res.status(403).json({ error: "Unknown proxy service type" });
+  } catch (e) {
+    if (e) logger.error(e);
     return res.status(500).send({ error: "Unexpected error" });
   }
 }
+
+export default withAuth(handler);

@@ -1,11 +1,13 @@
+import { useTranslation } from "next-i18next/pages";
 import dynamic from "next/dynamic";
-import { useState, useEffect } from "react";
-import { useTranslation } from "next-i18next";
+import { useCallback } from "react";
 
-import Error from "../components/error";
-import Container from "../components/container";
 import Block from "../components/block";
+import Container from "../components/container";
 
+import useDataPoints from "./use-data-points";
+
+import { parseVersionForUrl } from "utils/proxy/api-helpers";
 import useWidgetAPI from "utils/proxy/use-widget-api";
 
 const ChartDual = dynamic(() => import("../components/chart_dual"), { ssr: false });
@@ -16,38 +18,34 @@ const defaultInterval = 1000;
 export default function Component({ service }) {
   const { t } = useTranslation();
   const { widget } = service;
-  const { chart, refreshInterval = defaultInterval, pointsLimit = defaultPointsLimit } = widget;
+  const { chart, refreshInterval = defaultInterval, pointsLimit = defaultPointsLimit, version = 3 } = widget;
+  const apiVersion = parseVersionForUrl(version, 3);
   const [, gpuName] = widget.metric.split(":");
 
-  const [dataPoints, setDataPoints] = useState(new Array(pointsLimit).fill({ a: 0, b: 0 }, 0, pointsLimit));
+  const [dataPoints, addDataPoint] = useDataPoints(pointsLimit, { a: 0, b: 0 });
 
-  const { data, error } = useWidgetAPI(widget, "gpu", {
-    refreshInterval: Math.max(defaultInterval, refreshInterval),
-  });
-
-  useEffect(() => {
-    if (data) {
-      // eslint-disable-next-line eqeqeq
-      const gpuData = data.find((item) => item[item.key] == gpuName);
-
-      if (gpuData) {
-        setDataPoints((prevDataPoints) => {
-          const newDataPoints = [...prevDataPoints, { a: gpuData.mem, b: gpuData.proc }];
-          if (newDataPoints.length > pointsLimit) {
-            newDataPoints.shift();
-          }
-          return newDataPoints;
-        });
+  const handleData = useCallback(
+    (newData) => {
+      if (!newData?.error) {
+        const gpuData = newData.find((item) => item[item.key] == gpuName);
+        if (gpuData) addDataPoint({ a: gpuData.mem, b: gpuData.proc });
       }
-    }
-  }, [data, gpuName, pointsLimit]);
+    },
+    [addDataPoint, gpuName],
+  );
 
-  if (error) {
-    return (
-      <Container chart={chart}>
-        <Error error={error} />
-      </Container>
-    );
+  const { data, error } = useWidgetAPI(
+    widget,
+    `${apiVersion}/gpu`,
+    {
+      refreshInterval: Math.max(defaultInterval, refreshInterval),
+    },
+    { onSuccess: handleData },
+  );
+
+  if (error || (data && data.error)) {
+    const finalError = error || data.error;
+    return <Container error={finalError} widget={widget} />;
   }
 
   if (!data) {
@@ -58,7 +56,6 @@ export default function Component({ service }) {
     );
   }
 
-  // eslint-disable-next-line eqeqeq
   const gpuData = data.find((item) => item[item.key] == gpuName);
 
   if (!gpuData) {

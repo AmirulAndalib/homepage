@@ -1,15 +1,19 @@
-import { useTranslation } from "next-i18next";
+import { useTranslation } from "next-i18next/pages";
 
-import useWidgetAPI from "../../utils/proxy/use-widget-api";
-import Container from "../../components/services/widget/container";
 import Block from "../../components/services/widget/block";
+import Container from "../../components/services/widget/container";
+import useWidgetAPI from "../../utils/proxy/use-widget-api";
+import withWidgetFields from "../../utils/widget-fields";
 
-export default function Component({ service }) {
+const DEFAULT_FIELDS = ["connectedAp", "activeUser", "alerts", "connectedGateways"];
+
+export default function Component({ service: configuredService }) {
   const { t } = useTranslation();
 
+  const service = withWidgetFields(configuredService, DEFAULT_FIELDS);
   const { widget } = service;
 
-  const { data: omadaData, error: omadaAPIError } = useWidgetAPI(widget, {
+  const { data: omadaData, error: omadaAPIError } = useWidgetAPI(widget, "info", {
     refreshInterval: 5000,
   });
 
@@ -23,6 +27,8 @@ export default function Component({ service }) {
         <Block label="omada.connectedAp" />
         <Block label="omada.activeUser" />
         <Block label="omada.alerts" />
+        <Block label="omada.connectedGateways" />
+        <Block label="omada.connectedSwitches" />
       </Container>
     );
   }
@@ -32,9 +38,8 @@ export default function Component({ service }) {
       <Block label="omada.connectedAp" value={t("common.number", { value: omadaData.connectedAp })} />
       <Block label="omada.activeUser" value={t("common.number", { value: omadaData.activeUser })} />
       <Block label="omada.alerts" value={t("common.number", { value: omadaData.alerts })} />
-      {omadaData.connectedGateways > 0 && (
-        <Block label="omada.connectedGateway" value={t("common.number", { value: omadaData.connectedGateways })} />
-      )}
+      <Block label="omada.connectedGateways" value={t("common.number", { value: omadaData.connectedGateways })} />
+      <Block label="omada.connectedSwitches" value={t("common.number", { value: omadaData.connectedSwitches })} />
     </Container>
   );
 }

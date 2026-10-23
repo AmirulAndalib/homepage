@@ -1,6 +1,5 @@
 // prettyBytes taken from https://github.com/sindresorhus/pretty-bytes
 
-/* eslint-disable no-param-reassign */
 const BYTE_UNITS = ["B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
 
 const BIBYTE_UNITS = ["B", "kiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
@@ -37,7 +36,6 @@ function prettyBytes(number, options) {
     ...options,
   };
 
-  // eslint-disable-next-line no-nested-ternary
   const UNITS = options.bits ? (options.binary ? BIBIT_UNITS : BIT_UNITS) : options.binary ? BIBYTE_UNITS : BYTE_UNITS;
 
   if (options.signed && number === 0) {
@@ -45,7 +43,7 @@ function prettyBytes(number, options) {
   }
 
   const isNegative = number < 0;
-  // eslint-disable-next-line no-nested-ternary
+
   const prefix = isNegative ? "-" : options.signed ? "+" : "";
 
   if (isNegative) {
@@ -84,12 +82,47 @@ function prettyBytes(number, options) {
   return `${prefix + numberString} ${unit}`;
 }
 
+function duration(durationInSeconds, i18next) {
+  const mo = Math.floor(durationInSeconds / (3600 * 24 * 31));
+  const d = Math.floor((durationInSeconds % (3600 * 24 * 31)) / (3600 * 24));
+  const h = Math.floor((durationInSeconds % (3600 * 24)) / 3600);
+  const m = Math.floor((durationInSeconds % 3600) / 60);
+  const s = Math.floor(durationInSeconds % 60);
+
+  const moDisplay = mo > 0 ? mo + i18next.t("common.months") : "";
+  const dDisplay = d > 0 ? d + i18next.t("common.days") : "";
+  const hDisplay = h > 0 && mo === 0 ? h + i18next.t("common.hours") : "";
+  const mDisplay = m > 0 && mo === 0 && d === 0 ? m + i18next.t("common.minutes") : "";
+  const sDisplay = s > 0 && mo === 0 && d === 0 && h === 0 ? s + i18next.t("common.seconds") : "";
+
+  return (moDisplay + dDisplay + hDisplay + mDisplay + sDisplay).replace(/,\s*$/, "");
+}
+
+function relativeDate(date, formatter) {
+  const cutoffs = [60, 3600, 86400, 86400 * 7, 86400 * 30, 86400 * 365, Infinity];
+  const units = ["second", "minute", "hour", "day", "week", "month", "year"];
+
+  const delta = Math.round((date.getTime() - Date.now()) / 1000);
+  const unitIndex = cutoffs.findIndex((cutoff) => cutoff > Math.abs(delta));
+  const divisor = unitIndex ? cutoffs[unitIndex - 1] : 1;
+
+  if (units[unitIndex] === "day") {
+    // compare calendar days, not elapsed 24h blocks
+    const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    return formatter.format(Math.round((startOfDay(date) - startOfDay(new Date())) / 86400000), "day");
+  }
+
+  return formatter.format(Math.floor(delta / divisor), units[unitIndex]);
+}
+
 module.exports = {
   i18n: {
     defaultLocale: "en",
     locales: ["en"],
   },
   serializeConfig: false,
+  // see https://github.com/i18next/i18next/issues/2227
+  cacheInBuiltFormats: false,
   use: [
     {
       init: (i18next) => {
@@ -104,14 +137,14 @@ module.exports = {
               ? BIBIT_UNITS
               : BIT_UNITS
             : options.binary
-            ? BIBYTE_UNITS
-            : BYTE_UNITS;
+              ? BIBYTE_UNITS
+              : BYTE_UNITS;
 
           if (value === 0) return `0 ${sizes[0]}/s`;
 
           const dm = options.decimals ? options.decimals : 0;
 
-          const i = options.binary ? 2 : Math.floor(Math.log(value) / Math.log(k));
+          const i = Math.floor(Math.log(value) / Math.log(k));
 
           const formatted = new Intl.NumberFormat(lng, { maximumFractionDigits: dm, minimumFractionDigits: dm }).format(
             parseFloat(value / k ** i),
@@ -126,6 +159,10 @@ module.exports = {
         i18next.services.formatter.add("date", (value, lng, options) =>
           new Intl.DateTimeFormat(lng, { ...options }).format(new Date(value)),
         );
+        i18next.services.formatter.add("relativeDate", (value, lng, options) =>
+          relativeDate(new Date(value), new Intl.RelativeTimeFormat(lng, { ...options })),
+        );
+        i18next.services.formatter.add("duration", (value, lng) => duration(value, i18next));
       },
       type: "3rdParty",
     },
